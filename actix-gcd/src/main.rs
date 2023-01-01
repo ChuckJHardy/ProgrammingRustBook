@@ -1,11 +1,43 @@
 use actix_web::{App, web, HttpResponse, HttpServer, Responder, http::header::ContentType};
+use serde::{Deserialize, Serialize};
+
+mod gcd;
 
 #[actix_web::main]
 async fn main() -> std::io::Result<()> {
-    HttpServer::new(|| App::new().route("/", web::get().to(get_index)))
+    HttpServer::new(||
+            App::new()
+                .route("/", web::get().to(get_index))
+                .route("/gcd", web::post().to(post_gcd))
+        )
         .bind(("127.0.0.1", 3000))?
         .run()
         .await
+}
+
+#[derive(Debug, Deserialize, Serialize)]
+struct GcdParameters {
+    n: u64,
+    m: u64,
+}
+
+async fn post_gcd(form: web::Form<GcdParameters>) -> HttpResponse {
+    if form.n == 0 || form.m == 0 {
+        return HttpResponse::BadRequest()
+            .content_type(ContentType::html())
+            .body("Computing the GCD with zero is boring.");
+    }
+
+    let response = format!(
+        "The gratest common divisor of the numbers {} and {} is <b>{}</b>\n",
+        form.n,
+        form.m,
+        gcd::gcd(form.n, form.m)
+    );
+
+    HttpResponse::Ok()
+        .content_type(ContentType::html())
+        .body(response)
 }
 
 async fn get_index() -> impl Responder {
@@ -25,7 +57,7 @@ async fn get_index() -> impl Responder {
 
 #[cfg(test)]
 mod tests {
-    use actix_web::{http::header::ContentType, test, web, App};
+    use actix_web::test;
 
     use super::*;
 
@@ -38,4 +70,5 @@ mod tests {
         let resp = test::call_service(&app, req).await;
         assert!(resp.status().is_success());
     }
+
 }
